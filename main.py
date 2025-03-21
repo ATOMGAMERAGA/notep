@@ -9,7 +9,6 @@ import datetime
 macro_recording = False
 macro_actions = []
 
-
 class EditorTab:
     def __init__(self, master, notebook, file_path=None):
         self.master = master
@@ -51,6 +50,8 @@ class EditorTab:
         self.text.tag_configure("string", foreground="#6a8759")
         self.text.tag_configure("comment", foreground="#808080")
         self.text.tag_configure("number", foreground="#6897bb")
+        self.text.tag_configure("class", foreground="#66d9ef")
+        self.text.tag_configure("function", foreground="#a6e22e")
 
     def on_key_release(self, event=None):
         self.highlight_syntax()
@@ -62,12 +63,19 @@ class EditorTab:
         self.text.tag_remove("string", "1.0", tk.END)
         self.text.tag_remove("comment", "1.0", tk.END)
         self.text.tag_remove("number", "1.0", tk.END)
+        self.text.tag_remove("class", "1.0", tk.END)
+        self.text.tag_remove("function", "1.0", tk.END)
         # Anahtar kelimeler
         keywords = r"\b(?:def|class|if|else|elif|while|for|in|import|from|as|return|try|except|finally|with|pass|break|continue|lambda|global|nonlocal|assert|yield)\b"
         for match in re.finditer(keywords, content):
             start = "1.0+{}c".format(match.start())
             end = "1.0+{}c".format(match.end())
-            self.text.tag_add("keyword", start, end)
+            if match.group() == "class":
+                self.text.tag_add("class", start, end)
+            elif match.group() == "def":
+                self.text.tag_add("function", start, end)
+            else:
+                self.text.tag_add("keyword", start, end)
         # Stringler (tek veya çift tırnak)
         for match in re.finditer(r"(['\"])(?:(?=(\\?))\2.)*?\1", content):
             start = "1.0+{}c".format(match.start())
@@ -107,7 +115,6 @@ class EditorTab:
         if macro_recording:
             # Burada, örnek olarak basitçe event.char ve event.keysym kaydediliyor.
             macro_actions.append((event.type, event.keysym, event.char))
-
 
     def hide_context_menu(self, event=None):
         # (İsteğe bağlı) sağ tık menüsü gizlenebilir.
@@ -334,6 +341,7 @@ class NotepadPlusPlusApp:
                         f.write(content)
                     editor.file_path = file_path
                     self.notebook.tab("current", text=os.path.basename(file_path))
+                    
                     self.status_var.set(f"{os.path.basename(file_path)} kaydedildi")
                 except Exception as e:
                     messagebox.showerror("Hata", f"Kaydedilemedi:\n{e}")
@@ -470,3 +478,4 @@ if __name__ == "__main__":
     app = NotepadPlusPlusApp(root)
     bind_global_shortcuts(app)
     root.mainloop()
+
