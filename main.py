@@ -4,6 +4,8 @@ import re
 import os
 import sv_ttk  # Sun Valley temasını uygulamak için
 import datetime
+import threading
+import time
 
 # Makro kaydı için global liste
 macro_recording = False
@@ -226,6 +228,13 @@ class NotepadPlusPlusApp:
         self.macro_recording = False
         self.macro_actions = []
 
+        # Otomatik kaydetme ayarları
+        self.auto_save = tk.BooleanVar(value=False)
+        self.auto_save_interval = tk.IntVar(value=60)  # Dakika cinsinden
+
+        # Otomatik kaydetme işlemini başlat
+        self.start_auto_save()
+
     def create_menu(self):
         menubar = tk.Menu(self.root)
         self.root.config(menu=menubar)
@@ -267,6 +276,7 @@ class NotepadPlusPlusApp:
         self.word_wrap = tk.BooleanVar(value=False)
         view_menu.add_checkbutton(label="Kelime Sarma", variable=self.word_wrap, command=self.toggle_word_wrap)
         view_menu.add_command(label="Tema Değiştir", command=sv_ttk.toggle_theme)
+        view_menu.add_checkbutton(label="Otomatik Kaydet", variable=self.auto_save, command=self.toggle_auto_save)
 
         # Makro Menüsü
         macro_menu = tk.Menu(menubar, tearoff=0)
@@ -341,7 +351,6 @@ class NotepadPlusPlusApp:
                         f.write(content)
                     editor.file_path = file_path
                     self.notebook.tab("current", text=os.path.basename(file_path))
-                    
                     self.status_var.set(f"{os.path.basename(file_path)} kaydedildi")
                 except Exception as e:
                     messagebox.showerror("Hata", f"Kaydedilemedi:\n{e}")
@@ -353,7 +362,7 @@ class NotepadPlusPlusApp:
             self.notebook.forget(current_tab)
             self.status_var.set("Sekme kapatıldı")
 
-    def exit_app(self):
+        def exit_app(self):
         if messagebox.askyesno("Çıkış", "Çıkmak istediğinize emin misiniz?"):
             self.root.quit()
 
@@ -431,6 +440,12 @@ class NotepadPlusPlusApp:
             else:
                 editor.text.config(wrap="none")
 
+    def toggle_auto_save(self):
+        if self.auto_save.get():
+            self.status_var.set("Otomatik kaydetme açık")
+        else:
+            self.status_var.set("Otomatik kaydetme kapalı")
+
     # Makro İşlemleri
     def start_macro_recording(self):
         self.macro_recording = True
@@ -458,6 +473,25 @@ class NotepadPlusPlusApp:
     def show_about(self):
         messagebox.showinfo("Hakkında", f"PyNotepad++\n\nGeliştirilme Tarihi: {datetime.date.today()}\nNotepad++ benzeri özellikler Tkinter ile uygulanmıştır.")
 
+    def start_auto_save(self):
+        if self.auto_save.get():
+            self.auto_save_thread = threading.Thread(target=self.auto_save_loop)
+            self.auto_save_thread.daemon = True  # Uygulama kapanınca thread de kapanır
+            self.auto_save_thread.start()
+
+    def auto_save_loop(self):
+        while True:
+            time.sleep(self.auto_save_interval.get() * 60)  # Dakika cinsinden
+            editor = self.get_current_editor()
+            if editor and editor.file_path:
+                try:
+                    content = editor.text.get("1.0", tk.END)
+                    with open(editor.file_path, "w", encoding="utf-8") as f:
+                        f.write(content)
+                    self.status_var.set(f"{os.path.basename(editor.file_path)} otomatik olarak kaydedildi")
+                except Exception as e:
+                    messagebox.showerror("Hata", f"Otomatik kaydetme sırasında hata oluştu:\n{e}")
+
 
 def bind_global_shortcuts(app):
     # Genel kısayollar
@@ -478,4 +512,3 @@ if __name__ == "__main__":
     app = NotepadPlusPlusApp(root)
     bind_global_shortcuts(app)
     root.mainloop()
-
